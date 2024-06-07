@@ -1,0 +1,35 @@
+# создаём счётчик сайтов, с которых осуществляется парсинг данных, вносим сайты в список
+import requests
+from bs4 import BeautifulSoup
+import re
+import csv
+
+schetchik = 1
+
+# URL-адрес сайта, который нужно разобрать
+urls = ['https://ru.wikipedia.org/wiki/%D0%A6%D0%B5%D0%BD%D0%BD%D0%BE%D1%81%D1%82%D1%8C', 'https://strategy24.ru/rf/management/projects/strategiya-rf-obshcherossiyskaya-platforma-vzaimodeystviya-biznesa-vlasti-i-obshchestva']
+keywords = [ 'ценность', 'человеческие ценности', 'ценности человека', 'духовно-нравственные']
+
+# Цикл для обхода всех URL-адресов
+for url in urls:
+  response = requests.get(url)
+
+  if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'html.parser')
+        paragraphs = soup.find_all('p')  # Находим все абзацы на странице
+        found_text = ""
+        for p in paragraphs:
+            for keyword in keywords:
+                if keyword in p.get_text().lower():  # Проверяем, содержит ли абзац ключевые слова
+                    found_text += p.get_text() + "\n"  # Добавляем текст абзаца к найденному тексту
+                    break  # Прерываем цикл, если найдено ключевое слово в абзаце
+        if found_text:
+            print(schetchik,url, found_text)
+            schetchik = schetchik + 1
+
+        else:
+            print(schetchik,url,'Текст о человеческих ценностях не найден на странице.')
+            schetchik = schetchik + 1
+  else:
+        print(schetchik,url,f'Ошибка при запросе сайта: {response.status_code}')
+        schetchik = schetchik + 1
