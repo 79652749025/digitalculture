@@ -1,0 +1,28 @@
+!pip install pyngrok
+!ngrok authtoken ...
+!pip install streamlit
+!pip install pandas
+import matplotlib.pyplot as plt
+
+#Приложить файл: my_4_app.py
+
+# @title Данные на сайте!
+import os
+import pandas as pd
+import streamlit as st
+from pyngrok import ngrok
+# Убедитесь, что pyngrok использует верную авторизацию
+# ngrok.set_auth_token("2hNbH0JuBb4Ubi4KYgYuJ2RNJ4n_3GxBP7MqSno3AZ2YWDtmn")
+# Убедитесь, что все существующие туннели ngrok завершены
+ngrok.kill()
+# Запуск ngrok для создания публичного URL
+public_url = ngrok.connect(8501, "http")
+# Показ публичного URL в приложении Streamlit
+st.write(f'Public URL: {public_url}')
+print(f'Public URL: {public_url}')
+# Команда для запуска Streamlit. Запускается отдельно в терминале.
+# !streamlit run my_second_app.py
+
+# Команда для запуска Streamlit. Запускается отдельно в терминале.
+!streamlit run my_second_app.py
+
