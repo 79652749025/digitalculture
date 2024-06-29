@@ -3,7 +3,7 @@
 !ngrok authtoken ...
 !pip install streamlit
 
-#@title Сайт ТЦА вариант 4 (свозможностью загрузки и выгрузки документа)
+#@title Сайт ЦГЭ вариант 4 (свозможностью загрузки и выгрузки документа)
 from flask import Flask, request, render_template_string, send_file
 from pyngrok import ngrok
 import threading
