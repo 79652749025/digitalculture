@@ -1,0 +1,46 @@
+# @title Этот скрипт ищет статьи на Википедии, связанные с культурными ценностями, используя API Википедии и добавляет их в эксель
+import requests
+import json
+import pandas as pd
+
+def search_wikipedia_articles(search_query):
+    """
+    Функция для поиска статей на Википедии по заданному поисковому запросу.
+    """
+    # URL API Википедии для поиска
+    endpoint = "https://ru.wikipedia.org/w/api.php"
+
+    params = {
+        "action": "query",
+        "format": "json",
+        "list": "search",
+        "srsearch": search_query
+    }
+
+    response = requests.get(endpoint, params=params)
+
+    if response.status_code == 200:
+        data = json.loads(response.text)
+
+        articles = data["query"]["search"]
+
+        # Сохраняем данные в DataFrame
+        df = pd.DataFrame(columns=["Title", "Snippet", "Page ID"])
+        for article in articles:
+            title = article.get("title")
+            snippet = article.get("snippet")
+            page_id = article.get("pageid")
+
+            # Используем pd.concat для добавления новой строки
+            df = pd.concat([df, pd.DataFrame({"Title": [title], "Snippet": [snippet], "Page ID": [page_id]})], ignore_index=True)
+            print(f"Заголовок: {title}\nСниппет: {snippet}\nPage ID: {page_id}\n")
+
+        # Сохраняем DataFrame в Excel
+        df.to_excel("wikipedia_articles.xlsx", index=False)
+        print("Данные успешно сохранены в файл 'wikipedia_articles.xlsx'")
+    else:
+        print(f"Ошибка при запросе к API Википедии: Код ответа {response.status_code}")
+
+# Пример поиска статей, связанных с 'Культурные ценности'
+search_query = "Культурные ценности"
+search_wikipedia_articles(search_query)
