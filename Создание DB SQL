@@ -1,0 +1,49 @@
+import pandas as pd  
+from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, String  
+
+# Create a connection to the database  
+engine = create_engine('sqlite:///my_database1.db')  
+
+# Create the table if it does not exist  
+metadata = MetaData()  
+
+# Define the table schema  
+some_table1 = Table(  
+    "some_table1", metadata,  
+    Column("ФПК", String),   
+    Column("Ценность", String)  
+)  
+
+# Create the table in the database  
+metadata.create_all(engine)  
+
+# Example data for insertion  
+parameters = [  
+    ('Пракультура', 'Жизнь'),  
+    ('Право', 'Справедливость'),  
+]  
+
+try:  
+    with engine.begin() as conn:  
+        # Insert data into the some_table1  
+        conn.execute(  
+            some_table1.insert(),  
+            [{'ФПК': row[0], 'Ценность': row[1]} for row in parameters]  # Map parameters to column names  
+        )  
+
+    # Retrieving data for verification  
+    with engine.begin() as conn:  
+        result = conn.execute(text("SELECT * FROM some_table1"))  
+        data = result.fetchall()  
+
+    # Convert the fetched data to a DataFrame  
+    df = pd.DataFrame(data, columns=result.keys())  
+
+    # Save DataFrame to CSV file  
+    df.to_csv('C:\\Users\\sfhdsfhg\\OneDrive\\Документы\\Python\\some_table1_data.csv', index=False)  
+
+    # View loaded data  
+    print(df)  
+
+except Exception as e:  
+    print("Ошибка:", e)
