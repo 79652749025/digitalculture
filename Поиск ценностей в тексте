@@ -1,0 +1,188 @@
+from transformers import BertTokenizer, BertForSequenceClassification  
+import torch  
+from torch.utils.data import DataLoader, Dataset  
+from sklearn.model_selection import train_test_split  
+import faiss  
+import numpy as np  
+from sklearn.metrics import accuracy_score  
+import pandas as pd  
+import PyPDF2  
+import os  
+import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+
+# 1. Функция для загрузки данных из разных форматов  
+def load_data(file_path):  
+    ext = os.path.splitext(file_path)[1].lower()  # Получение расширения файла  
+
+    if ext == '.csv':  
+        df = pd.read_csv(file_path)  
+        texts = df['text'].tolist()  
+        labels = df['label'].tolist()  
+    elif ext == '.txt':  
+        with open(file_path, 'r', encoding='utf-8') as f:  
+            lines = f.readlines()  
+        texts = [line.strip() for line in lines]  
+        labels = [0, 1, 2] * (len(texts) // 3)  # Обновлено для более правильной генерации меток  
+    elif ext == '.pdf':  
+        texts = []  
+        labels = []  # Это пример; в реальности стоит добавить более умное назначение меток  
+        with open(file_path, 'rb') as f:  
+            reader = PyPDF2.PdfReader(f)  
+            for page in reader.pages:  
+                text = page.extract_text()  
+                if text:  
+                    texts.append(text)  
+                    # Пример меток; логика назначения меток зависит от вашего случая использования  
+                    labels.append(0)  # Замените на необходимую логику меток  
+        # labels = [0, 1, 2] * (len(texts) // 3)  # чтобы метки были равномерны  
+    else:  
+        raise ValueError("Unsupported file format")  
+
+    return texts, labels   
+
+# 2. Создание пользовательского набора данных  
+class TextDataset(Dataset):  
+    def __init__(self, texts, labels, tokenizer, max_length):  
+        self.texts = texts  
+        self.labels = labels  
+        self.tokenizer = tokenizer  
+        self.max_length = max_length  
+
+    def __len__(self):  
+        return len(self.texts)  
+
+    def __getitem__(self, idx):  
+        text = self.texts[idx]  
+        label = self.labels[idx]  
+        # Токенизация и создание входных данных  
+        encoding = self.tokenizer.encode_plus(  
+            text,  
+            add_special_tokens=True,  
+            max_length=self.max_length,  
+            return_token_type_ids=False,  
+            padding='max_length',  
+            truncation=True,  
+            return_attention_mask=True,  
+            return_tensors='pt'  
+        )  
+        return {  
+            'input_ids': encoding['input_ids'].flatten(),  
+            'attention_mask': encoding['attention_mask'].flatten(),  
+            'labels': torch.tensor(label, dtype=torch.long)  
+        }  
+
+# 3. Загрузка данных  
+file_path = r'C:\Users\sfhdsfhg\OneDrive\Документы\Python\Лотман_ценности.txt'  # Укажите путь к вашему файлу (.csv, .txt или .pdf)  
+texts, labels = load_data(file_path)  
+
+# Делим данные на обучение и валидацию  
+train_texts, valid_texts, train_labels, valid_labels = train_test_split(  
+    texts, labels, test_size=0.2, random_state=42  
+)  
+
+# Инициализация токенизатора и создание наборов данных  
+model_name = 'bert-base-uncased'  
+tokenizer = BertTokenizer.from_pretrained(model_name)  
+max_length = 32  # Максимальная длина последовательности  
+train_dataset = TextDataset(train_texts, train_labels, tokenizer, max_length)  
+valid_dataset = TextDataset(valid_texts, valid_labels, tokenizer, max_length)  
+
+# 4. Создание DataLoader  
+train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)  
+valid_loader = DataLoader(valid_dataset, batch_size=2)  
+
+# 5. Загрузка модели  
+num_labels = len(set(labels))  
+model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)  
+
+# 6. Настройка устройства  
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  
+model = model.to(device)  
+
+# 7. Определение оптимизатора  
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)  
+
+# 8. Обучение модели  
+num_epochs = 3  
+
+for epoch in range(num_epochs):  
+    model.train()  
+    total_loss = 0  
+    all_labels = []  
+    all_preds = []  
+
+    for batch in train_loader:  
+        optimizer.zero_grad()  
+        
+        input_ids = batch['input_ids'].to(device)  
+        attention_mask = batch['attention_mask'].to(device)  
+        labels = batch['labels'].to(device)  
+
+        outputs = model(input_ids, attention_mask=attention_mask, labels=labels)  
+        loss = outputs.loss  
+        total_loss += loss.item()  
+
+        # Получение предсказаний  
+        logits = outputs.logits  
+        preds = torch.argmax(logits, dim=1)  
+        
+        # Сохраняем метки и предсказания для расчёта точности  
+        all_labels.extend(labels.cpu().numpy())  
+        all_preds.extend(preds.cpu().numpy())  
+
+        loss.backward()  
+        optimizer.step()  
+
+    # Вычисление средней потери  
+    avg_loss = total_loss / len(train_loader)  
+    
+    # Вычисление точности  
+    accuracy = accuracy_score(all_labels, all_preds)  
+
+    print(f"Epoch {epoch + 1}, Loss: {avg_loss:.4f}, Accuracy: {accuracy:.4f}")  
+
+# 9. Сохранение эмбеддингов текстов для FAISS  
+model.eval()  
+embeddings = []  
+
+with torch.no_grad():  
+    for batch in train_loader:  
+        input_ids = batch['input_ids'].to(device)  
+        attention_mask = batch['attention_mask'].to(device)  
+
+        outputs = model.bert(input_ids, attention_mask=attention_mask)  
+        # Получение [CLS] токена как эмбеддинга  
+        cls_embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy()  
+        embeddings.append(cls_embeddings)  
+
+embeddings = np.concatenate(embeddings)  
+
+# Сохранение модели  
+model.save_pretrained('model_directory')  
+tokenizer.save_pretrained('model_directory')  
+
+# 10. Создание индекса FAISS  
+index = faiss.IndexFlatL2(embeddings.shape[1])  # Создание индекса на основе L2 расстояния  
+index.add(embeddings)  # Добавление эмбеддингов в индекс  
+
+# Пример поиска ближайших соседей  
+query_embedding = embeddings[0].reshape(1, -1)  # Пример вектора запроса  
+k = 2  # Количество ближайших соседей  
+D, I = index.search(query_embedding, k)  # Поиск  
+
+# Вывод результатов поиска  
+print(f"Distances: {D}")  
+print(f"Indices: {I}")  
+# 11. Построение графического вывода  
+# Подсчет количества примеров для каждого класса  
+value_labels = ['Добро', 'Правда', 'Справедливость']  
+counts = [train_labels.count(i) for i in range(num_labels)]  
+
+# Создание графика  
+plt.bar(value_labels, counts, color=['blue', 'orange', 'green'])  
+plt.title('Ценностный профиль по показателям')  
+plt.xlabel('Ценности')  
+plt.ylabel('Количество примеров')  
+plt.ylim(0, max(counts) + 1)  
+plt.show()  
