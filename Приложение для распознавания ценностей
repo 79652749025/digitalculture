@@ -1,5 +1,5 @@
 !pip install pyngrok
-!ngrok authtoken 2hNbH0JuBb4Ubi4KYgYuJ2RNJ4n_3GxBP7MqSno3AZ2YWDtmn
+!ngrok authtoken ...............................
 !pip install pandas
 !pip install streamlit
 !pip install transformers torch
