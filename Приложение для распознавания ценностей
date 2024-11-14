@@ -1,0 +1,81 @@
+!pip install pyngrok
+!ngrok authtoken 2hNbH0JuBb4Ubi4KYgYuJ2RNJ4n_3GxBP7MqSno3AZ2YWDtmn
+!pip install pandas
+!pip install streamlit
+!pip install transformers torch
+
+from transformers import BertTokenizer, BertForSequenceClassification
+import torch
+import os
+import pandas as pd
+import streamlit as st
+from pyngrok import ngrok
+import matplotlib.pyplot as plt
+
+# Укажите путь к директории, где сохранены модель и токенизатор
+model_directory = '/content/my_trained_model'
+
+# Загрузка обученной модели и токенизатора
+model = BertForSequenceClassification.from_pretrained(model_directory)
+tokenizer = BertTokenizer.from_pretrained(model_directory)
+
+print("Модель и токенизатор успешно загружены.")
+# Загрузите обученную модель и токенизатор
+model = BertForSequenceClassification.from_pretrained('my_trained_model')
+tokenizer = BertTokenizer.from_pretrained('my_trained_model')
+
+# Убедитесь, что модель в режиме предсказания
+model.eval()
+
+# Список ценностей для декодирования меток
+themes = [
+    "Жизнь", "Искренность", "Вера", "Честность", "Честь", "Справедливость",
+    "Надёжность", "Достаток", "Гуманизм", "Результат", "Альтруизм",
+    "Любовь", "Комфорт", "Самореализация", "Радость", "Просветленность",
+    "Красота", "Достоинство", "План", "Труд", "Надежда", "Истина",
+    "Свобода", "Правда", "Всеединство", "Здоровье", "Совесть", "Человеческий капитал",
+    "Творчество", "Нравственность", "Обязательность", "Концентрация",
+    "Разумность", "Целостность", "Представление", "Онтичность",
+    "Чувство Рода", "Возрождение", "Вдохновение", "Сущность",
+    "Рассуждение", "Продуктивность", "Взаимопонимание", "Прекрасное",
+    "Вечное", "Мудрость", "Верность", "Гений", "Понимание",
+    "Гармония", "Наследование", "Сознание", "Ценность", "Негэнтропийность",
+    "Счастье", "Тринитарность", "Взаимосодействие", "Уверенность",
+    "Жизнеутверждение", "Милосердие", "Уникальность", "Сложностность",
+    "Предвидение", "Благодарность", "Благодать", "Откровение"
+]
+
+# Функция для классификации текста
+def classify_text(text):
+    # Токенизация текста
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding='max_length', max_length=128)
+
+    # Получение предсказаний
+    with torch.no_grad():
+        outputs = model(**inputs)
+        logits = outputs.logits
+
+        # Аргмакс для одной ценности
+        predicted_class_id = torch.argmax(logits, dim=1).item()
+        predicted_value = themes[predicted_class_id]
+
+        # Второй вариант: получение нескольких вероятных ценностей
+        probabilities = torch.nn.functional.softmax(logits, dim=1).squeeze()
+        topk_probs, topk_indices = torch.topk(probabilities, k=3)
+        topk_values = [themes[idx] for idx in topk_indices.tolist()]
+
+    return predicted_value, list(zip(topk_values, topk_probs.tolist()))
+
+
+# Настройка туннеля. Убедитесь, что все существующие туннели ngrok завершены
+ngrok.kill()
+
+# Запуск ngrok для создания публичного URL
+public_url = ngrok.connect(8501, "http")
+
+# Показ публичного URL в приложении Streamlit
+st.write(f'Public URL: {public_url}')
+print(f'Public URL: {public_url}')
+
+#Запуск окна в браузере
+!streamlit run app.py
