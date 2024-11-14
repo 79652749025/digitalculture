@@ -1,0 +1,137 @@
+# @title Библиотека FAISS
+!pip install faiss-cpu
+!pip install faiss-gpu
+!pip install transformers
+!pip install torch
+!pip install scikit-learn
+!pip install pandas PyPDF2 pdfplumber
+!pip install PyPDF2
+!pip install textblob
+!pip install --upgrade nltk textblob
+!python -m textblob.download_corpora
+!python -m textblob.download_corpora popular
+!pip install pandas PyPDF2 pdfplumber
+
+#Текст для анализа с использованием TextBlob
+from textblob import TextBlob
+import nltk
+import pandas as pd
+from textblob import TextBlob
+import pdfplumber
+import os
+import glob
+# Download required NLTK data
+nltk.download('punkt_tab')
+
+# Пример текста для анализа
+text = "Текст для анализа с использованием TextBlob."
+# Создание объекта TextBlob
+blob = TextBlob(text)
+# Получение предложений
+sentences = blob.sentences
+# Печать предложений
+for sentence in sentences:
+    print(sentence)
+
+def load_text_from_txt(file_path):
+    """Загрузка текста из файла .txt"""
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read()
+
+def load_text_from_pdf(file_path):
+    """Загрузка текста из файла .pdf"""
+    text = ""
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:  # Проверяем, что текст был извлечен
+                    text += page_text + "\n"
+    except Exception as e:
+        print(f"Ошибка при загрузке PDF: {e}")
+    return text
+
+def load_text_from_csv(file_path):
+    """Загрузка текста из файла .csv"""
+    df = pd.read_csv(file_path)
+    return "\n".join(df.iloc[:, 0].astype(str).tolist())  # Предполагаем, что текст находится в первом столбце
+
+def load_text(file_path):
+    """Определение типа файла и загрузка текста"""
+    _, ext = os.path.splitext(file_path)
+    
+    if ext.lower() == '.txt':
+        return load_text_from_txt(file_path)
+    elif ext.lower() == '.pdf':
+        return load_text_from_pdf(file_path)
+    elif ext.lower() == '.csv':
+        return load_text_from_csv(file_path)
+    else:
+        raise ValueError("Unsupported file format: {}".format(ext))
+
+# Загрузка нескольких документов из указанной директории
+def load_multiple_documents(directory):
+    """Загрузка всех текстовых документов из указанной директории"""
+    all_texts = []
+    
+    # Поиск всех файлов в директории с нужными расширениями
+    for file_type in ['*.txt', '*.pdf', '*.csv']:
+        for file_path in glob.glob(os.path.join(directory, file_type)):
+            try:
+                text = load_text(file_path)
+                all_texts.append(text)
+                print(f"Текст успешно загружен из: {file_path}")
+            except Exception as e:
+                print(f"Ошибка при загрузке текста из {file_path}: {e}")
+    
+    return "\n".join(all_texts)  # Объединяем все тексты в один
+
+# Пример использования
+directory = '/content/drive/MyDrive/БД/Ценности БД/ValueTexts'  # Замените на путь к вашей директории с файлами
+all_documents_text = load_multiple_documents(directory)
+
+# Список тем
+themes = [
+    "Жизнь", "Искренность", "Вера", "Честность", "Честь", "Справедливость",
+    "Надёжность", "Достаток", "Гуманизм", "Результат", "Альтруизм",
+    "Любовь", "Комфорт", "Самореализация", "Радость", "Просветленность",
+    "Красота", "Достоинство", "План", "Труд", "Надежда", "Истина",
+    "Свобода", "Правда", "Всеединство", "Здоровье", "Совесть", 
+    "Человеческий капитал", "Творчество", "Нравственность",
+    "Обязательность", "Концентрация", "Разумность", 
+    "Целостность", "Представление", "Онтичность",
+    "Чувство Рода", "Возрождение", "Вдохновение",
+    "Сущность", "Рассуждение", "Продуктивность",
+    "Взаимопонимание", "Прекрасное", 
+    "Вечное", "Мудрость"
+]
+
+# Использование TextBlob для токенизации предложений
+blob = TextBlob(all_documents_text)
+sentences = blob.sentences
+
+# Создание словаря для хранения предложений по темам
+theme_sentences = {theme: [] for theme in themes}
+
+# Поиск и распределение предложений по темам
+for theme in themes:
+    for sentence in sentences:
+        if theme.lower() in sentence.lower():
+            theme_sentences[theme].append(sentence.raw)
+
+# Создание DataFrame для экспорта в Excel
+data = {theme: [" ".join(theme_sentences[theme])] for theme in themes}
+df = pd.DataFrame.from_dict(data, orient='index', columns=['Предложения'])
+
+# Экспортирование в Excel
+df.to_excel("theme_sentences.xlsx", engine='openpyxl')
+print("Данные успешно экспортированы в 'theme_sentences.xlsx'.")
+
+#Текст успешно загружен из: /content/drive/MyDrive/БД/Ценности БД/ValueTexts/Лотман_ценности.txt
+#Текст успешно загружен из: /content/drive/MyDrive/БД/Ценности БД/ValueTexts/Nexus_harrary.txt
+#Текст успешно загружен из: /content/drive/MyDrive/БД/Ценности БД/ValueTexts/Ценности GPT.txt
+#Текст успешно загружен из: /content/drive/MyDrive/БД/Ценности БД/ValueTexts/Ценности_perplexity.txt
+#Текст успешно загружен из: /content/drive/MyDrive/БД/Ценности БД/ValueTexts/Лихачёв_Письма о добром и прекрасном.pdf
+#Текст успешно загружен из: /content/drive/MyDrive/БД/Ценности БД/ValueTexts/Лебедева_Татарко_Ценности_культуры.pdf
+#Текст успешно загружен из: /content/drive/MyDrive/БД/Ценности БД/ValueTexts/aksiologicheskiy-slovar-slavyanskoy-frazeologii-struktura-i-soderzhanie-proekt.pdf
+#Данные успешно экспортированы в 'theme_sentences.xlsx'.
