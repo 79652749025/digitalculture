@@ -1,0 +1,35 @@
+import sqlite3  
+import numpy as np  
+import faiss  
+
+# Функция для генерации векторов (например, простой случайный генератор для демонстрации)  
+def generate_vector(text):  
+    # Здесь вы можете использовать любую модель встраивания, например, от `sentence-transformers`  
+    # В этом примере используется случайная генерация векторов для демонстрации  
+    return np.random.random(128).astype('float32')  # 128 - размерность вектора  
+
+# Шаг 1: Подключение к существующей базе данных  
+conn = sqlite3.connect('my_database1.db')  
+cursor = conn.cursor()  
+
+# Шаг 2: Извлечение данных  
+cursor.execute("SELECT ФПК FROM some_table1")  # Замените на нужный вам запрос  
+data = cursor.fetchall()  
+
+# Генерация векторов для всех данных  
+vectors = np.array([generate_vector(row[0]) for row in data])  
+
+# Шаг 3: Создание FAISS индекса  
+dimension = vectors.shape[1]  # Размерность векторов  
+index = faiss.IndexFlatL2(dimension)  # Используем индекс L2  
+
+# Добавление векторов в индекс  
+index.add(vectors)  
+
+# Сохранение индекса в файл  
+faiss.write_index(index, 'vector_index.faiss')  
+
+# Закрытие соединения с базой данных  
+conn.close()  
+
+print("Векторная база данных успешно создана и сохранена в 'vector_index.faiss'.")
